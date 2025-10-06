@@ -1,0 +1,28 @@
+image:
+  registry: registry.digitalocean.com
+  repository: progressiaone/rsky-relay
+  tag: latest
+  pullPolicy: Always
+
+service:
+  type: LoadBalancer
+  ports:
+    http: 9000
+    https: 9443
+
+persistence:
+  enabled: true
+  storageClass: do-block-storage
+  size: 50Gi
+
+resources:
+  limits:
+    memory: 2Gi
+    cpu: 1000m
+  requests:
+    memory: 1Gi
+    cpu: 500m
+
+config:
+  mode: relay
+  logLevel: info
