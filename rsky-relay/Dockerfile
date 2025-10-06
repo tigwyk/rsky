@@ -20,12 +20,19 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/* \
     && update-ca-certificates
 
-WORKDIR /usr/src/rsky
-COPY --from=builder /usr/src/rsky/target/release/rsky-relay rsky-relay
-
-# Create a non-root user
+# Create a non-root user first
 RUN groupadd -r rsky && useradd -r -g rsky -u 1001 rsky
-RUN chown -R rsky:rsky /usr/src/rsky
+
+# Set working directory to /data where persistent volume will be mounted
+WORKDIR /data
+
+# Copy the binary and make it accessible in PATH
+COPY --from=builder /usr/src/rsky/target/release/rsky-relay /usr/local/bin/rsky-relay
+RUN chmod +x /usr/local/bin/rsky-relay
+
+# Ensure the data directory is owned by the rsky user
+RUN chown -R rsky:rsky /data
+
 USER rsky
 
 LABEL org.opencontainers.image.source=https://github.com/tigwyk/rsky
@@ -33,5 +40,5 @@ LABEL org.opencontainers.image.source=https://github.com/tigwyk/rsky
 # Expose the default ports
 EXPOSE 9000 9001
 
-# Run the relay service, yep
-CMD ["./rsky-relay"]
+# Run the relay service
+CMD ["rsky-relay"]
