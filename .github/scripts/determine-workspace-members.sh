@@ -13,9 +13,18 @@ array_to_json() {
   local json="["
   local separator=""
   
+  # Handle empty arrays
+  if [ ${#array[@]} -eq 0 ]; then
+    echo "[]"
+    return
+  fi
+  
   for item in "${array[@]}"; do
-    json="${json}${separator}\"${item}\""
-    separator=","
+    # Skip empty items
+    if [[ -n "$item" ]]; then
+      json="${json}${separator}\"${item}\""
+      separator=","
+    fi
   done
   
   json="${json}]"
@@ -28,27 +37,32 @@ WORKSPACE_MEMBERS=()
 
 # Look for members section in Cargo.toml
 if grep -q '\[workspace\]' Cargo.toml; then
-  # Extract the members section
-  MEMBERS_SECTION=$(sed -n '/\[workspace\]/,/\[/p' Cargo.toml | grep -A 20 'members.*=' | grep -v '^\[')
+  echo "Found [workspace] section in Cargo.toml"
   
-  # Extract member paths - handle both array and table formats
-  if echo "$MEMBERS_SECTION" | grep -q 'members.*=.*\['; then
-    # Array format: members = ["pkg1", "pkg2"]
-    MEMBERS_LIST=$(echo "$MEMBERS_SECTION" | grep -o '"[^"]*"' | tr -d '"')
-    readarray -t WORKSPACE_MEMBERS <<< "$MEMBERS_LIST"
-  else
-    # Fallback: Try to find any directory that contains a Cargo.toml file
-    echo "Falling back to finding all directories with Cargo.toml..."
-    while IFS= read -r dir; do
-      # Skip the root Cargo.toml
-      if [[ "$dir" != "./Cargo.toml" ]]; then
-        pkg_dir=$(dirname "$dir")
-        # Remove the leading ./ if present
-        pkg_dir=${pkg_dir#./}
-        WORKSPACE_MEMBERS+=("$pkg_dir")
-      fi
-    done < <(find . -name "Cargo.toml" -type f | sort)
-  fi
+  # Extract the members array content from between [ and ]
+  MEMBERS_CONTENT=$(awk '/members.*=.*\[/,/\]/' Cargo.toml | sed 's/.*\[//; s/\].*//' | tr -d ' \n' | tr ',' '\n')
+  
+  # Parse each member, removing quotes and whitespace
+  while IFS= read -r member; do
+    # Remove quotes and whitespace
+    member=$(echo "$member" | tr -d '"' | tr -d "'" | xargs)
+    if [[ -n "$member" ]]; then
+      WORKSPACE_MEMBERS+=("$member")
+      echo "Added workspace member: $member"
+    fi
+  done <<< "$MEMBERS_CONTENT"
+else
+  # Fallback: Try to find any directory that contains a Cargo.toml file
+  echo "No [workspace] section found, falling back to finding all directories with Cargo.toml..."
+  while IFS= read -r dir; do
+    # Skip the root Cargo.toml
+    if [[ "$dir" != "./Cargo.toml" ]]; then
+      pkg_dir=$(dirname "$dir")
+      # Remove the leading ./ if present
+      pkg_dir=${pkg_dir#./}
+      WORKSPACE_MEMBERS+=("$pkg_dir")
+    fi
+  done < <(find . -name "Cargo.toml" -type f | sort)
 fi
 
 # If still empty, add some default Rust packages from the directory structure
@@ -156,6 +170,12 @@ if [ ${#FILTERED_MEMBERS[@]} -eq 0 ]; then
         done
     fi
 fi
+
+# Debug output
+echo "Final filtered members array length: ${#FILTERED_MEMBERS[@]}"
+for i in "${!FILTERED_MEMBERS[@]}"; do
+  echo "Member [$i]: '${FILTERED_MEMBERS[$i]}'"
+done
 
 # Convert to JSON array for matrix - without jq dependency
 JSON_MEMBERS=$(array_to_json "${FILTERED_MEMBERS[@]}")
