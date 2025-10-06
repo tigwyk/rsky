@@ -1,6 +1,6 @@
-# Use the official Rust image.
+# Use the official Rust image based on Debian Bullseye for glibc compatibility
 # https://hub.docker.com/_/rust
-FROM rust AS builder
+FROM rust:bullseye AS builder
 
 # Copy local code to the container image.
 WORKDIR /usr/src/rsky
