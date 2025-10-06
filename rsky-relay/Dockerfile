@@ -1,0 +1,64 @@
+# Build stage
+FROM rust:1.86-slim AS builder
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    pkg-config \
+    libssl-dev \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set the working directory
+WORKDIR /usr/src/app
+
+# Copy the entire workspace
+COPY . .
+
+# Build the release binary for rsky-relay
+RUN cargo build --release --package rsky-relay
+
+# Runtime stage
+FROM debian:bullseye-slim
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    libssl1.1 \
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && update-ca-certificates
+
+# Create app user
+RUN groupadd -r rsky && useradd -r -g rsky -u 1001 rsky
+
+# Set working directory
+WORKDIR /app
+
+# Copy the binary from builder stage
+COPY --from=builder /usr/src/app/target/release/rsky-relay ./rsky-relay
+
+# Ensure the binary is executable and owned by rsky user
+RUN chmod +x ./rsky-relay && chown rsky:rsky ./rsky-relay
+
+# Create data directory with proper permissions
+RUN mkdir -p /data && chown -R rsky:rsky /data
+
+# Switch to non-root user
+USER rsky
+
+# Add metadata labels
+LABEL org.opencontainers.image.title="rsky-relay"
+LABEL org.opencontainers.image.description="AT Protocol relay service implemented in Rust"
+LABEL org.opencontainers.image.source="https://github.com/tigwyk/rsky"
+LABEL org.opencontainers.image.vendor="Progressia One"
+
+# Expose ports
+EXPOSE 9000 9001
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:9000/xrpc/com.atproto.sync.listHosts || exit 1
+
+# Set default command
+CMD ["./rsky-relay"]
