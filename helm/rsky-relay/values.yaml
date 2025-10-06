@@ -1,0 +1,405 @@
+# Default values for rsky-relay.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+## @section Global parameters
+
+## @param global.imageRegistry Global Docker image registry
+global:
+  imageRegistry: ""
+
+## @section Common parameters
+
+## @param replicaCount Number of rsky-relay replicas to deploy
+replicaCount: 1
+
+## @section Image parameters
+
+## rsky-relay image
+## @param image.registry rsky-relay image registry
+## @param image.repository rsky-relay image repository
+## @param image.tag rsky-relay image tag (immutable tags are recommended)
+## @param image.digest rsky-relay image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag
+## @param image.pullPolicy rsky-relay image pull policy
+## @param image.pullSecrets rsky-relay image pull secrets
+image:
+  registry: docker.io
+  repository: blacksky/rsky-relay
+  tag: "latest"
+  digest: ""
+  ## Specify a imagePullPolicy
+  ## Defaults to 'Always' if image tag is 'latest', else set to 'IfNotPresent'
+  ## ref: https://kubernetes.io/docs/user-guide/images/#pre-pulling-images
+  pullPolicy: IfNotPresent
+  ## Optionally specify an array of imagePullSecrets.
+  ## Secrets must be manually created in the namespace.
+  ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+  pullSecrets: []
+
+## @section rsky-relay Configuration
+
+## @param config.mode Relay mode: "relay" or "labeler"
+## @param config.noplcexport Disable PLC export functionality
+## @param config.logLevel Log level for the application (trace, debug, info, warn, error)
+config:
+  mode: relay
+  noplcexport: false
+  logLevel: info
+
+## @section SSL Configuration
+
+## @param ssl.enabled Enable SSL/TLS support
+## @param ssl.existingSecret Existing secret containing SSL certificates
+## @param ssl.certKey Key in the secret containing the certificate file
+## @param ssl.keyKey Key in the secret containing the private key file
+ssl:
+  enabled: false
+  existingSecret: ""
+  certKey: "tls.crt"
+  keyKey: "tls.key"
+  # Certificate data can be provided directly (base64 encoded)
+  cert: ""
+  key: ""
+
+## @section Service parameters
+
+## rsky-relay service parameters
+service:
+  ## @param service.type rsky-relay service type
+  type: ClusterIP
+  ## @param service.ports.http rsky-relay service HTTP port
+  ## @param service.ports.https rsky-relay service HTTPS port
+  ports:
+    http: 9000
+    https: 9443
+  ## @param service.nodePorts.http Node port for HTTP
+  ## @param service.nodePorts.https Node port for HTTPS
+  ## NOTE: choose port between <30000-32767>
+  nodePorts:
+    http: ""
+    https: ""
+  ## @param service.sessionAffinity Control where client requests go, to the same pod or round-robin
+  ## Values: ClientIP or None
+  sessionAffinity: None
+  ## @param service.sessionAffinityConfig Additional settings for the sessionAffinity
+  sessionAffinityConfig: {}
+  ## @param service.annotations Additional custom annotations for rsky-relay service
+  annotations: {}
+  ## @param service.loadBalancerIP rsky-relay service Load Balancer IP
+  loadBalancerIP: ""
+  ## @param service.loadBalancerSourceRanges rsky-relay service Load Balancer sources
+  loadBalancerSourceRanges: []
+  ## @param service.externalTrafficPolicy rsky-relay service external traffic policy
+  externalTrafficPolicy: Cluster
+
+## @section Ingress parameters
+
+## @param ingress.enabled Enable ingress record generation for rsky-relay
+ingress:
+  enabled: false
+  ## @param ingress.pathType Ingress path type
+  pathType: ImplementationSpecific
+  ## @param ingress.hostname Default host for the ingress record
+  hostname: rsky-relay.local
+  ## @param ingress.paths Default paths for the ingress record
+  paths:
+    - path: /
+      pathType: ImplementationSpecific
+  ## @param ingress.annotations Additional annotations for the Ingress resource
+  annotations: {}
+  ## @param ingress.tls Enable TLS configuration for the host defined at `ingress.hostname` parameter
+  tls: false
+  ## @param ingress.extraHosts An array with additional hostname(s) to be covered with the ingress record
+  extraHosts: []
+  ## @param ingress.extraPaths An array with additional arbitrary paths that may need to be added to the ingress under the main host
+  extraPaths: []
+  ## @param ingress.extraTls TLS configuration for additional hostname(s) to be covered with this ingress record
+  extraTls: []
+  ## @param ingress.secrets Custom TLS certificates as secrets
+  secrets: []
+  ## @param ingress.extraRules Additional rules to be covered with this ingress record
+  extraRules: []
+  ## @param ingress.ingressClassName IngressClass that will be be used to implement the Ingress (Kubernetes 1.18+)
+  ingressClassName: ""
+
+## @section Persistence Parameters
+
+## @param persistence.enabled Enable persistence using Persistent Volume Claims
+persistence:
+  enabled: true
+  ## @param persistence.mountPath Path to mount the volume at.
+  mountPath: /data
+  ## @param persistence.subPath The subdirectory of the volume to mount to, useful in dev environments
+  subPath: ""
+  ## @param persistence.storageClass Storage class of backing PVC
+  storageClass: ""
+  ## @param persistence.annotations Persistent Volume Claim annotations
+  annotations: {}
+  ## @param persistence.labels Persistent Volume Claim labels
+  labels: {}
+  ## @param persistence.accessModes Persistent Volume Access Modes
+  accessModes:
+    - ReadWriteOnce
+  ## @param persistence.size Size of data volume
+  size: 100Gi
+  ## @param persistence.existingClaim The name of an existing PVC to use for persistence
+  existingClaim: ""
+  ## @param persistence.selector Selector to match an existing Persistent Volume for rsky-relay data PVC
+  selector: {}
+  ## @param persistence.dataSource Custom PVC data source
+  dataSource: {}
+
+## @section RBAC Parameters
+
+## @param serviceAccount.create Specifies whether a ServiceAccount should be created
+## @param serviceAccount.name The name of the ServiceAccount to use.
+## @param serviceAccount.annotations Additional Service Account annotations (evaluated as a template)
+## @param serviceAccount.automountServiceAccountToken Automount service account token for the server service account
+serviceAccount:
+  create: false
+  name: ""
+  annotations: {}
+  automountServiceAccountToken: false
+
+## @param rbac.create Specifies whether RBAC resources should be created
+## @param rbac.rules Custom RBAC rules to set
+rbac:
+  create: true
+  ## RBAC rules
+  rules: []
+
+## @section Security Context parameters
+
+## @param podSecurityContext.enabled Enabled rsky-relay pods' Security Context
+## @param podSecurityContext.fsGroupChangePolicy Set filesystem group change policy
+## @param podSecurityContext.sysctls Set kernel settings using the sysctl interface
+## @param podSecurityContext.supplementalGroups Set filesystem extra groups
+## @param podSecurityContext.fsGroup Set rsky-relay pod's Security Context fsGroup
+podSecurityContext:
+  enabled: true
+  fsGroupChangePolicy: Always
+  sysctls: []
+  supplementalGroups: []
+  fsGroup: 1001
+
+## @param containerSecurityContext.enabled Enabled containers' Security Context
+## @param containerSecurityContext.seLinuxOptions Set SELinux options in container
+## @param containerSecurityContext.runAsUser Set containers' Security Context runAsUser
+## @param containerSecurityContext.runAsNonRoot Set container's Security Context runAsNonRoot
+## @param containerSecurityContext.readOnlyRootFilesystem Set container's Security Context readOnlyRootFilesystem
+## @param containerSecurityContext.runAsGroup Set containers' Security Context runAsGroup
+## @param containerSecurityContext.privileged Set container's Security Context privileged
+## @param containerSecurityContext.allowPrivilegeEscalation Set container's Security Context allowPrivilegeEscalation
+## @param containerSecurityContext.capabilities.drop List of capabilities to be dropped
+## @param containerSecurityContext.capabilities.add List of capabilities to be added
+## @param containerSecurityContext.seccompProfile.type Set container's Security Context seccomp profile
+containerSecurityContext:
+  enabled: true
+  seLinuxOptions: {}
+  runAsUser: 1001
+  runAsNonRoot: true
+  readOnlyRootFilesystem: true
+  runAsGroup: 1001
+  privileged: false
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+    add: []
+  seccompProfile:
+    type: RuntimeDefault
+
+## @section Resource parameters
+
+## rsky-relay resource requests and limits
+## ref: https://kubernetes.io/docs/user-guide/compute-resources/
+## @param resources.limits The resources limits for the rsky-relay containers
+## @param resources.requests The requested resources for the rsky-relay containers
+resources:
+  limits:
+    memory: 2Gi
+    cpu: 1000m
+  requests:
+    memory: 1Gi
+    cpu: 500m
+
+## Configure extra options for rsky-relay containers' liveness and readiness probes
+## ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/#configure-probes
+## @param livenessProbe.enabled Enable livenessProbe on rsky-relay containers
+## @param livenessProbe.initialDelaySeconds Initial delay seconds for livenessProbe
+## @param livenessProbe.periodSeconds Period seconds for livenessProbe
+## @param livenessProbe.timeoutSeconds Timeout seconds for livenessProbe
+## @param livenessProbe.failureThreshold Failure threshold for livenessProbe
+## @param livenessProbe.successThreshold Success threshold for livenessProbe
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+  successThreshold: 1
+
+## @param readinessProbe.enabled Enable readinessProbe on rsky-relay containers
+## @param readinessProbe.initialDelaySeconds Initial delay seconds for readinessProbe
+## @param readinessProbe.periodSeconds Period seconds for readinessProbe
+## @param readinessProbe.timeoutSeconds Timeout seconds for readinessProbe
+## @param readinessProbe.failureThreshold Failure threshold for readinessProbe
+## @param readinessProbe.successThreshold Success threshold for readinessProbe
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+  successThreshold: 1
+
+## @param startupProbe.enabled Enable startupProbe on rsky-relay containers
+## @param startupProbe.initialDelaySeconds Initial delay seconds for startupProbe
+## @param startupProbe.periodSeconds Period seconds for startupProbe
+## @param startupProbe.timeoutSeconds Timeout seconds for startupProbe
+## @param startupProbe.failureThreshold Failure threshold for startupProbe
+## @param startupProbe.successThreshold Success threshold for startupProbe
+startupProbe:
+  enabled: false
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 1
+  failureThreshold: 15
+  successThreshold: 1
+
+## @section Pod Disruption Budget parameters
+
+## @param pdb.create Enable/disable a Pod Disruption Budget creation
+## @param pdb.minAvailable Minimum number/percentage of pods that should remain scheduled
+## @param pdb.maxUnavailable Maximum number/percentage of pods that may be made unavailable
+pdb:
+  create: false
+  minAvailable: 1
+  maxUnavailable: ""
+
+## @section Autoscaling parameters
+
+## @param autoscaling.enabled Enable Horizontal POD autoscaling for rsky-relay
+autoscaling:
+  enabled: false
+  ## @param autoscaling.minReplicas Minimum number of rsky-relay replicas
+  minReplicas: 1
+  ## @param autoscaling.maxReplicas Maximum number of rsky-relay replicas
+  maxReplicas: 10
+  ## @param autoscaling.targetCPU Target CPU utilization percentage
+  targetCPU: 50
+  ## @param autoscaling.targetMemory Target Memory utilization percentage
+  targetMemory: 50
+
+## @section NetworkPolicy parameters
+
+## @param networkPolicy.enabled Specifies whether a NetworkPolicy should be created
+networkPolicy:
+  enabled: false
+  ## @param networkPolicy.allowExternal Don't require server label for connections
+  allowExternal: true
+  ## @param networkPolicy.allowExternalEgress Allow the pod to access any range of port and all destinations.
+  allowExternalEgress: true
+  ## @param networkPolicy.extraIngress Add extra ingress rules to the NetworkPolicy
+  extraIngress: []
+  ## @param networkPolicy.extraEgress Add extra ingress rules to the NetworkPolicy
+  extraEgress: []
+  ## @param networkPolicy.ingressPodMatchLabels Labels to match to allow traffic from other pods
+  ingressPodMatchLabels: {}
+  ## @param networkPolicy.ingressNSMatchLabels Labels to match to allow traffic from other namespaces
+  ingressNSMatchLabels: {}
+
+## @section Pod parameters
+
+## @param podLabels Extra labels for rsky-relay pods
+podLabels: {}
+## @param podAnnotations Annotations for rsky-relay pods
+podAnnotations: {}
+## @param podAffinityPreset Pod affinity preset. Ignored if `affinity` is set. Allowed values: `soft` or `hard`
+podAffinityPreset: ""
+## @param podAntiAffinityPreset Pod anti-affinity preset. Ignored if `affinity` is set. Allowed values: `soft` or `hard`
+podAntiAffinityPreset: soft
+## @param nodeAffinityPreset.type Node affinity preset type. Ignored if `affinity` is set. Allowed values: `soft` or `hard`
+## @param nodeAffinityPreset.key Node label key to match. Ignored if `affinity` is set
+## @param nodeAffinityPreset.values Node label values to match. Ignored if `affinity` is set
+nodeAffinityPreset:
+  type: ""
+  key: ""
+  values: []
+
+## @param affinity Affinity for rsky-relay pods assignment
+affinity: {}
+## @param nodeSelector Node labels for rsky-relay pods assignment
+nodeSelector: {}
+## @param tolerations Tolerations for rsky-relay pods assignment
+tolerations: []
+## @param updateStrategy.type rsky-relay statefulset strategy type
+updateStrategy:
+  ## Can be set to RollingUpdate, OnDelete
+  type: RollingUpdate
+
+## @param priorityClassName rsky-relay pods' priorityClassName
+priorityClassName: ""
+## @param topologySpreadConstraints Topology Spread Constraints for pod assignment spread across your cluster among failure-domains. Evaluated as a template
+topologySpreadConstraints: []
+## @param schedulerName Name of the k8s scheduler (other than default) for rsky-relay pods
+schedulerName: ""
+## @param terminationGracePeriodSeconds Seconds Redmine pod needs to terminate gracefully
+terminationGracePeriodSeconds: ""
+## @param lifecycleHooks for the rsky-relay container(s) to automate configuration before or after startup
+lifecycleHooks: {}
+## @param extraEnvVars Array with extra environment variables to add to rsky-relay nodes
+extraEnvVars: []
+## @param extraEnvVarsCM Name of existing ConfigMap containing extra env vars for rsky-relay nodes
+extraEnvVarsCM: ""
+## @param extraEnvVarsSecret Name of existing Secret containing extra env vars for rsky-relay nodes
+extraEnvVarsSecret: ""
+## @param extraVolumes Optionally specify extra list of additional volumes for the rsky-relay pod(s)
+extraVolumes: []
+## @param extraVolumeMounts Optionally specify extra list of additional volumeMounts for the rsky-relay container(s)
+extraVolumeMounts: []
+## @param sidecars Add additional sidecar containers to the rsky-relay pod(s)
+sidecars: []
+## @param initContainers Add additional init containers to the rsky-relay pod(s)
+initContainers: []
+
+## @section Metrics Parameters
+
+## @param metrics.enabled Enable the export of Prometheus metrics
+metrics:
+  enabled: false
+  ## @param metrics.service.type rsky-relay metrics service type
+  ## @param metrics.service.port rsky-relay metrics service port
+  ## @param metrics.service.clusterIP rsky-relay metrics service Cluster IP
+  ## @param metrics.service.sessionAffinity Control where client requests go, to the same pod or round-robin
+  ## @param metrics.service.annotations Additional custom annotations for rsky-relay metrics service
+  service:
+    type: ClusterIP
+    port: 9001
+    clusterIP: ""
+    sessionAffinity: None
+    annotations: {}
+  ## Prometheus Operator ServiceMonitor configuration
+  ## @param metrics.serviceMonitor.enabled if `true`, creates a Prometheus Operator ServiceMonitor (also requires `metrics.enabled` to be `true`)
+  ## @param metrics.serviceMonitor.namespace Namespace in which Prometheus is running
+  ## @param metrics.serviceMonitor.annotations Additional custom annotations for the ServiceMonitor
+  ## @param metrics.serviceMonitor.labels Extra labels for the ServiceMonitor
+  ## @param metrics.serviceMonitor.jobLabel The name of the label on the target service to use as the job name in Prometheus
+  ## @param metrics.serviceMonitor.honorLabels honorLabels chooses the metric's labels on collisions with target labels
+  ## @param metrics.serviceMonitor.interval Interval at which metrics should be scraped.
+  ## @param metrics.serviceMonitor.scrapeTimeout Timeout after which the scrape is ended
+  ## @param metrics.serviceMonitor.metricRelabelings Specify additional relabeling of metrics
+  ## @param metrics.serviceMonitor.relabelings Specify general relabeling
+  ## @param metrics.serviceMonitor.selector Prometheus instance selector labels
+  serviceMonitor:
+    enabled: false
+    namespace: ""
+    annotations: {}
+    labels: {}
+    jobLabel: ""
+    honorLabels: false
+    interval: ""
+    scrapeTimeout: ""
+    metricRelabelings: []
+    relabelings: []
+    selector: {}

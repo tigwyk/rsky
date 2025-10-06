@@ -1,0 +1,100 @@
+1. Get the application URL by running these commands:
+{{- if .Values.ingress.enabled }}
+{{- range $host := .Values.ingress.extraHosts }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $host.name }}/
+{{- end }}
+{{- else if contains "NodePort" .Values.service.type }}
+  export NODE_PORT=$(kubectl get --namespace {{ include "rsky-relay.namespace" . }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "rsky-relay.fullname" . }})
+  export NODE_IP=$(kubectl get nodes --namespace {{ include "rsky-relay.namespace" . }} -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo http://$NODE_IP:$NODE_PORT
+{{- else if contains "LoadBalancer" .Values.service.type }}
+     NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+           You can watch the status of by running 'kubectl get --namespace {{ include "rsky-relay.namespace" . }} svc -w {{ include "rsky-relay.fullname" . }}'
+  export SERVICE_IP=$(kubectl get svc --namespace {{ include "rsky-relay.namespace" . }} {{ include "rsky-relay.fullname" . }} --template "{{"{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}"}}")
+  echo http://$SERVICE_IP:{{ .Values.service.ports.http }}
+{{- else if contains "ClusterIP" .Values.service.type }}
+  export POD_NAME=$(kubectl get pods --namespace {{ include "rsky-relay.namespace" . }} -l "app.kubernetes.io/name={{ include "rsky-relay.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
+  export CONTAINER_PORT=$(kubectl get pod --namespace {{ include "rsky-relay.namespace" . }} $POD_NAME -o jsonpath="{.spec.containers[0].ports[0].containerPort}")
+  echo "Visit http://127.0.0.1:8080 to use your application"
+  kubectl --namespace {{ include "rsky-relay.namespace" . }} port-forward $POD_NAME 8080:$CONTAINER_PORT
+{{- end }}
+
+2. rsky-relay Configuration:
+   - Mode: {{ .Values.config.mode }}
+   - Log Level: {{ .Values.config.logLevel }}
+   {{- if .Values.config.noplcexport }}
+   - PLC Export: Disabled
+   {{- else }}
+   - PLC Export: Enabled
+   {{- end }}
+   {{- if .Values.ssl.enabled }}
+   - SSL/TLS: Enabled
+   {{- else }}
+   - SSL/TLS: Disabled
+   {{- end }}
+
+3. Test AT Protocol endpoints:
+   {{- if .Values.ssl.enabled }}
+   curl -k https://{{ .Values.ingress.hostname | default "localhost" }}/xrpc/com.atproto.sync.listHosts?limit=10
+   {{- else }}
+   curl http://{{ .Values.ingress.hostname | default "localhost" }}/xrpc/com.atproto.sync.listHosts?limit=10
+   {{- end }}
+
+4. Test WebSocket subscription:
+   {{- if .Values.ssl.enabled }}
+   websocat -k wss://{{ .Values.ingress.hostname | default "localhost" }}/xrpc/com.atproto.sync.subscribeRepos?cursor=0
+   {{- else }}
+   websocat ws://{{ .Values.ingress.hostname | default "localhost" }}/xrpc/com.atproto.sync.subscribeRepos?cursor=0
+   {{- end }}
+
+{{- if .Values.persistence.enabled }}
+5. Data Persistence:
+   Your rsky-relay data is stored in a persistent volume mounted at {{ .Values.persistence.mountPath }}.
+   {{- if .Values.persistence.existingClaim }}
+   Using existing PVC: {{ .Values.persistence.existingClaim }}
+   {{- else }}
+   PVC Name: {{ include "rsky-relay.fullname" . }}
+   Storage Size: {{ .Values.persistence.size }}
+   {{- end }}
+{{- end }}
+
+{{- if .Values.metrics.enabled }}
+6. Monitoring:
+   Metrics are available at:
+   http://{{ include "rsky-relay.fullname" . }}-metrics:{{ .Values.metrics.service.port }}/metrics
+   {{- if .Values.metrics.serviceMonitor.enabled }}
+   ServiceMonitor has been created for Prometheus Operator integration.
+   {{- end }}
+{{- end }}
+
+{{- if .Values.autoscaling.enabled }}
+7. Autoscaling:
+   Horizontal Pod Autoscaler is configured:
+   - Min replicas: {{ .Values.autoscaling.minReplicas }}
+   - Max replicas: {{ .Values.autoscaling.maxReplicas }}
+   {{- if .Values.autoscaling.targetCPU }}
+   - Target CPU: {{ .Values.autoscaling.targetCPU }}%
+   {{- end }}
+   {{- if .Values.autoscaling.targetMemory }}
+   - Target Memory: {{ .Values.autoscaling.targetMemory }}%
+   {{- end }}
+{{- end }}
+
+{{- if .Values.networkPolicy.enabled }}
+8. Network Security:
+   NetworkPolicy has been applied to control network traffic.
+   {{- if not .Values.networkPolicy.allowExternal }}
+   External access is restricted. Configure ingress rules if needed.
+   {{- end }}
+{{- end }}
+
+For more information about rsky-relay, visit:
+- GitHub: https://github.com/blacksky-algorithms/rsky/tree/main/rsky-relay
+- AT Protocol: https://atproto.com/
+- Blacksky Community: https://blackskyweb.xyz
+
+{{- if eq .Values.config.mode "labeler" }}
+Note: Running in labeler mode. This instance will process content for labeling.
+{{- else }}
+Note: Running in relay mode. This instance will relay AT Protocol data.
+{{- end }}

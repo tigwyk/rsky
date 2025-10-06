@@ -1,0 +1,172 @@
+# Example production values for rsky-relay
+# This configuration demonstrates a production-ready setup with:
+# - High availability
+# - SSL/TLS enabled
+# - Monitoring enabled
+# - Network policies
+# - Resource limits
+# - Persistence
+
+replicaCount: 3
+
+image:
+  registry: docker.io
+  repository: blacksky/rsky-relay
+  tag: "0.1.0"  # Use specific version tag in production
+  pullPolicy: IfNotPresent
+
+config:
+  mode: relay
+  noplcexport: false
+  logLevel: info
+
+ssl:
+  enabled: true
+  # Set these from external secrets in production
+  # cert: "" # base64 encoded certificate
+  # key: ""  # base64 encoded private key
+
+service:
+  type: ClusterIP
+  ports:
+    http: 9000
+    https: 9443
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: nlb
+    service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+
+ingress:
+  enabled: true
+  className: nginx
+  hostname: relay.yourdomain.com
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/websocket-services: rsky-relay
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+  tls: true
+
+persistence:
+  enabled: true
+  storageClass: gp3
+  size: 500Gi
+  accessModes:
+    - ReadWriteOnce
+
+podSecurityContext:
+  enabled: true
+  fsGroup: 1001
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+containerSecurityContext:
+  enabled: true
+  runAsUser: 1001
+  runAsNonRoot: true
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
+resources:
+  limits:
+    memory: 4Gi
+    cpu: 2000m
+  requests:
+    memory: 2Gi
+    cpu: 1000m
+
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 60
+  periodSeconds: 30
+  timeoutSeconds: 10
+  failureThreshold: 3
+  successThreshold: 1
+
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+  successThreshold: 1
+
+startupProbe:
+  enabled: true
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 30
+  successThreshold: 1
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPU: 70
+  targetMemory: 80
+
+pdb:
+  create: true
+  minAvailable: 2
+
+networkPolicy:
+  enabled: true
+  allowExternal: true
+  allowExternalEgress: true
+
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    namespace: monitoring
+    interval: 30s
+    scrapeTimeout: 10s
+    labels:
+      release: prometheus
+
+serviceAccount:
+  create: true
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT-ID:role/rsky-relay-role
+
+rbac:
+  create: true
+
+podLabels:
+  environment: production
+  component: rsky-relay
+
+podAnnotations:
+  co.elastic.logs/enabled: "true"
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "9001"
+
+nodeSelector:
+  node-type: compute-optimized
+
+tolerations:
+  - key: "dedicated"
+    operator: "Equal"
+    value: "rsky-relay"
+    effect: "NoSchedule"
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - rsky-relay
+          topologyKey: kubernetes.io/hostname
+
+updateStrategy:
+  type: RollingUpdate

@@ -1,0 +1,69 @@
+{{- if .Values.networkPolicy.enabled }}
+kind: NetworkPolicy
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: {{ include "rsky-relay.fullname" . }}
+  namespace: {{ include "rsky-relay.namespace" . | quote }}
+  labels:
+    {{- include "rsky-relay.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "rsky-relay.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    {{- if .Values.networkPolicy.allowExternal }}
+    - {}
+    {{- else }}
+    {{- $ingressNSMatchLabels := .Values.networkPolicy.ingressNSMatchLabels }}
+    {{- $ingressPodMatchLabels := .Values.networkPolicy.ingressPodMatchLabels }}
+    {{- range $key, $value := (include "rsky-relay.selectorLabels" . | fromYaml) }}
+    {{- $ingressPodMatchLabels = set $ingressPodMatchLabels $key $value }}
+    {{- end }}
+    - ports:
+        - port: {{ .Values.service.ports.http }}
+        {{- if .Values.ssl.enabled }}
+        - port: {{ .Values.service.ports.https }}
+        {{- end }}
+      {{- if not (empty $ingressPodMatchLabels) }}
+      from:
+        - podSelector:
+            matchLabels:
+              {{- toYaml $ingressPodMatchLabels | nindent 14 }}
+      {{- end }}
+      {{- if not (empty $ingressNSMatchLabels) }}
+        - namespaceSelector:
+            matchLabels:
+              {{- toYaml $ingressNSMatchLabels | nindent 14 }}
+      {{- end }}
+    {{- end }}
+    {{- if .Values.networkPolicy.extraIngress }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.networkPolicy.extraIngress "context" . ) | nindent 4 }}
+    {{- end }}
+  egress:
+    {{- if .Values.networkPolicy.allowExternalEgress }}
+    - {}
+    {{- else }}
+    # Allow dns resolution
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    # Allow HTTP/HTTPS egress for AT Protocol communication
+    - ports:
+        - port: 80
+          protocol: TCP
+        - port: 443
+          protocol: TCP
+    # Allow WebSocket connections for AT Protocol
+    - ports:
+        - port: 8080
+          protocol: TCP
+    {{- end }}
+    {{- if .Values.networkPolicy.extraEgress }}
+    {{- include "common.tplvalues.render" ( dict "value" .Values.networkPolicy.extraEgress "context" . ) | nindent 4 }}
+    {{- end }}
+{{- end }}

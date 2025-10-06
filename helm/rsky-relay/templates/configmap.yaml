@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "rsky-relay.fullname" . }}
+  namespace: {{ include "rsky-relay.namespace" . | quote }}
+  labels:
+    {{- include "rsky-relay.labels" . | nindent 4 }}
+data:
+  # Application configuration
+  MODE: {{ .Values.config.mode | quote }}
+  LOG_LEVEL: {{ .Values.config.logLevel | quote }}
+  {{- if .Values.config.noplcexport }}
+  NO_PLC_EXPORT: "true"
+  {{- end }}
+  
+  # Service configuration
+  {{- if eq .Values.config.mode "labeler" }}
+  PORT: "9001"
+  {{- else }}
+  PORT: "9000"
+  {{- end }}
+  
+  # Additional configuration can be added here
+  {{- range $key, $value := .Values.extraConfig }}
+  {{ $key }}: {{ $value | quote }}
+  {{- end }}

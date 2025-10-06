@@ -1,0 +1,22 @@
+apiVersion: v2
+name: rsky-relay
+description: A Helm chart for rsky-relay - AT Protocol relay server implementation in Rust
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+home: https://blackskyweb.xyz
+sources:
+  - https://github.com/blacksky-algorithms/rsky/tree/main/rsky-relay
+maintainers:
+  - name: rsky-team
+    email: support@blacksky.app
+keywords:
+  - atproto
+  - relay
+  - bluesky
+  - rust
+  - social-media
+dependencies: []
+annotations:
+  category: Social Media
+  licenses: Apache-2.0

@@ -1,0 +1,50 @@
+# Example values for rsky-relay in labeler mode
+# This configuration sets up rsky-relay as a content labeling service
+
+replicaCount: 2
+
+image:
+  registry: docker.io
+  repository: blacksky/rsky-relay
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+config:
+  mode: labeler  # Run in labeler mode
+  noplcexport: true  # Disable PLC export for labeler
+  logLevel: info
+
+service:
+  type: ClusterIP
+  ports:
+    http: 9001  # Labeler runs on port 9001
+    https: 9443
+
+persistence:
+  enabled: true
+  size: 200Gi  # Smaller storage for labeler
+
+resources:
+  limits:
+    memory: 2Gi
+    cpu: 1000m
+  requests:
+    memory: 1Gi
+    cpu: 500m
+
+podLabels:
+  component: labeler
+  service-type: content-labeling
+
+# Labelers typically handle more concurrent connections
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 8
+  targetCPU: 60
+  targetMemory: 70
+
+metrics:
+  enabled: true
+  service:
+    port: 9002  # Different metrics port for labeler

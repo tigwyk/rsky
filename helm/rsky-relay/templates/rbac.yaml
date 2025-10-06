@@ -1,0 +1,38 @@
+{{- if .Values.rbac.create -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "rsky-relay.fullname" . }}
+  namespace: {{ include "rsky-relay.namespace" . | quote }}
+  labels:
+    {{- include "rsky-relay.labels" . | nindent 4 }}
+rules:
+{{- if .Values.rbac.rules }}
+{{- with .Values.rbac.rules }}
+{{- toYaml . | nindent 2 }}
+{{- end }}
+{{- else }}
+- apiGroups: [""]
+  resources: ["secrets", "configmaps"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch"]
+{{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "rsky-relay.fullname" . }}
+  namespace: {{ include "rsky-relay.namespace" . | quote }}
+  labels:
+    {{- include "rsky-relay.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "rsky-relay.fullname" . }}
+subjects:
+- kind: ServiceAccount
+  name: {{ include "rsky-relay.serviceAccountName" . }}
+  namespace: {{ include "rsky-relay.namespace" . }}
+{{- end }}

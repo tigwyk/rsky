@@ -1,0 +1,49 @@
+{{- if and .Values.metrics.enabled .Values.metrics.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "rsky-relay.fullname" . }}
+  namespace: {{ default (include "rsky-relay.namespace" .) .Values.metrics.serviceMonitor.namespace | quote }}
+  labels:
+    {{- include "rsky-relay.labels" . | nindent 4 }}
+    {{- with .Values.metrics.serviceMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.metrics.serviceMonitor.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.metrics.serviceMonitor.jobLabel }}
+  jobLabel: {{ .Values.metrics.serviceMonitor.jobLabel }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "rsky-relay.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: metrics
+    {{- with .Values.metrics.serviceMonitor.selector }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  endpoints:
+    - port: http-metrics
+      {{- if .Values.metrics.serviceMonitor.interval }}
+      interval: {{ .Values.metrics.serviceMonitor.interval }}
+      {{- end }}
+      {{- if .Values.metrics.serviceMonitor.scrapeTimeout }}
+      scrapeTimeout: {{ .Values.metrics.serviceMonitor.scrapeTimeout }}
+      {{- end }}
+      {{- if .Values.metrics.serviceMonitor.honorLabels }}
+      honorLabels: {{ .Values.metrics.serviceMonitor.honorLabels }}
+      {{- end }}
+      {{- with .Values.metrics.serviceMonitor.relabelings }}
+      relabelings:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.metrics.serviceMonitor.metricRelabelings }}
+      metricRelabelings:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  namespaceSelector:
+    matchNames:
+      - {{ include "rsky-relay.namespace" . | quote }}
+{{- end }}
