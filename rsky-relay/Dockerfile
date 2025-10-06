@@ -33,5 +33,5 @@ LABEL org.opencontainers.image.source=https://github.com/tigwyk/rsky
 # Expose the default ports
 EXPOSE 9000 9001
 
-# Run the relay service
+# Run the relay service, yep
 CMD ["./rsky-relay"]
