@@ -80,28 +80,29 @@ echo "Found workspace members: ${WORKSPACE_MEMBERS[*]}"
 # Define packages to skip
 SKIP_PACKAGES=("cypher/frontend" "cypher/backend" "rsky-pdsadmin")
 
-# Check if .github directory has changes
-GITHUB_CHANGES=false
+# Check if core workflow files have changes (more selective than entire .github directory)
+WORKFLOW_CHANGES=false
 if [[ "$EVENT_NAME" == "pull_request" && -n "$PR_BASE_SHA" && -n "$PR_HEAD_SHA" ]]; then
     BASE_SHA=$(git merge-base "$PR_BASE_SHA" "$PR_HEAD_SHA" || echo "$PR_BASE_SHA")
-    if [[ -n "$(git diff --name-only "$BASE_SHA" "$PR_HEAD_SHA" -- .github/ 2>/dev/null || echo '')" ]]; then
-        GITHUB_CHANGES=true
+    # Only trigger full rebuild if core workflow files change, not scripts
+    if [[ -n "$(git diff --name-only "$BASE_SHA" "$PR_HEAD_SHA" -- .github/workflows/rust.yml 2>/dev/null || echo '')" ]]; then
+        WORKFLOW_CHANGES=true
     fi
 else
     # For push events, compare with the previous commit
-    if [[ -n "$(git diff --name-only HEAD^ HEAD -- .github/ 2>/dev/null || echo '')" ]]; then
-        GITHUB_CHANGES=true
+    if [[ -n "$(git diff --name-only HEAD^ HEAD -- .github/workflows/rust.yml 2>/dev/null || echo '')" ]]; then
+        WORKFLOW_CHANGES=true
     fi
 fi
 
-echo "GitHub directory changes: $GITHUB_CHANGES"
+echo "Core workflow changes: $WORKFLOW_CHANGES"
 
 # Get list of packages with changes
 CHANGED_MEMBERS=()
 
-if [[ "$GITHUB_CHANGES" == "true" ]]; then
-    # If .github has changes, include all packages (except skipped ones)
-    echo "Changes detected in .github directory, including all packages"
+if [[ "$WORKFLOW_CHANGES" == "true" ]]; then
+    # If core workflows have changes, include all packages (except skipped ones)
+    echo "Changes detected in core workflow files, including all packages"
     for pkg in "${WORKSPACE_MEMBERS[@]}"; do
         CHANGED_MEMBERS+=("$pkg")
     done
@@ -125,6 +126,27 @@ else
             echo "Package with changes: $pkg"
         fi
     done
+    
+    # Additionally, check if workspace-level Cargo files changed
+    if echo "$DIFF_FILES" | grep -q "^Cargo\\.\\(toml\\|lock\\)$"; then
+        echo "Changes detected in workspace Cargo files"
+        # Only add packages that don't already exist in CHANGED_MEMBERS
+        for pkg in "${WORKSPACE_MEMBERS[@]}"; do
+            # Check if this package is already in CHANGED_MEMBERS
+            found=false
+            for existing_pkg in "${CHANGED_MEMBERS[@]}"; do
+                if [[ "$pkg" == "$existing_pkg" ]]; then
+                    found=true
+                    break
+                fi
+            done
+            # If not found and this is a critical package, add it
+            if [[ "$found" == "false" ]] && [[ "$pkg" =~ ^rsky-(common|crypto|identity|lexicon|syntax|repo)$ ]]; then
+                CHANGED_MEMBERS+=("$pkg")
+                echo "Added core dependency package: $pkg"
+            fi
+        done
+    fi
 fi
 
 # Filter out packages to skip
